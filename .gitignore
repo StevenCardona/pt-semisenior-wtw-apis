@@ -1,0 +1,91 @@
+# ==============================
+# .NET
+# ==============================
+
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+
+# ==============================
+# NuGet
+# ==============================
+
+*.nupkg
+*.snupkg
+packages/
+
+
+# ==============================
+# Logs
+# ==============================
+
+*.log
+
+
+# ==============================
+# Tests / Coverage
+# ==============================
+
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+
+# ==============================
+# ASP.NET Core
+# ==============================
+
+# Configuración local
+appsettings.Development.json
+appsettings.Local.json
+
+# User Secrets
+secrets.json
+
+
+# ==============================
+# Environment Variables
+# ==============================
+
+.env
+.env.*
+!.env.example
+
+
+# ==============================
+# OS
+# ==============================
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+
+# ==============================
+# Temporary files
+# ==============================
+
+*.tmp
+*.temp
+*.cache
+*.bak
+*.swp
