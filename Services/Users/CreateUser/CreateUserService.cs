@@ -19,6 +19,7 @@ public class CreateUserService
         var mail = request.Mail.Trim();
 
         var existing = await _userRepository.GetByEmail(mail, cancellationToken);
+
         if (existing is not null)
         {
             throw new ConflictException($"Ya existe un usuario con el correo '{mail}'.");
