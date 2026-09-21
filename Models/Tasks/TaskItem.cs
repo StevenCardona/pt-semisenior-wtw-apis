@@ -1,3 +1,4 @@
+using Common.Exceptions;
 using Models.Users;
 
 namespace Models.Tasks;
@@ -18,12 +19,19 @@ public class TaskItem
 
     public void ChangeStatus(TaskItemStatus newStatus)
     {
-        if (!TaskItemStatusTransitions.CanTransition(Status, newStatus))
+        if (Status == TaskItemStatus.Pending && newStatus == TaskItemStatus.InProgress)
         {
-            throw new InvalidOperationException(
-                $"No se puede cambiar el estado de '{Status}' a '{newStatus}'.");
+            Status = newStatus;
+            return;
         }
 
-        Status = newStatus;
+        if (Status == TaskItemStatus.InProgress && newStatus == TaskItemStatus.Done)
+        {
+            Status = newStatus;
+            return;
+        }
+
+        throw new BadRequestException(
+            $"No se puede cambiar el estado de '{Status}' a '{newStatus}'.");
     }
 }
