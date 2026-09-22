@@ -2,7 +2,22 @@
 
 Backend de la prueba técnica: API REST para gestionar usuarios y tareas.
 
-Stack: **.NET 10**, **Entity Framework Core** y **SQL Server** (LocalDB por defecto).
+Stack: **.NET 10**, **Entity Framework Core** y **SQL Server**.
+
+---
+
+## URLs publicadas
+
+| Entorno | URL |
+|---------|-----|
+| **API (producción)** | https://wtw-task-manager-apis.runasp.net |
+| **Frontend (Vercel)** | https://pt-semisenior-wtw-web.vercel.app |
+
+Ejemplo rápido:
+
+```http
+GET https://wtw-task-manager-apis.runasp.net/api/users
+```
 
 ---
 
@@ -11,7 +26,7 @@ Stack: **.NET 10**, **Entity Framework Core** y **SQL Server** (LocalDB por defe
 Antes de empezar, ten instalado:
 
 1. [.NET 10 SDK](https://dotnet.microsoft.com/download)
-2. **SQL Server LocalDB** (viene con Visual Studio) o SQL Server Express / completo
+2. **SQL Server LocalDB** (viene con Visual Studio) o SQL Server Express / completo — solo si corres en local
 
 Para comprobar que .NET está bien:
 
@@ -37,21 +52,25 @@ cd wtw-task-manager-apis
 dotnet restore
 ```
 
-### Paso 3 — Connection string (normalmente no hay que tocarla)
+### Paso 3 — Connection string
 
-Por defecto usa LocalDB y la base `WtwTaskManager`:
+La API usa la clave **`Remoto`** (ver `Program.cs` → `GetConnectionString("Remoto")`).
 
 Archivo: `WebApis/appsettings.json`
 
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=WtwTaskManager;Trusted_Connection=True;TrustServerCertificate=True"
+  "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=WtwTaskManager;Trusted_Connection=True;TrustServerCertificate=True",
+  "Remoto": "Data Source=...;Initial Catalog=...;User ID=...;Password=...;Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
 }
 ```
 
-Solo cámbiala si usas otra instancia de SQL Server.
+- **Producción / host actual:** usa `Remoto` (SQL Server remoto).
+- **Desarrollo local opcional:** puedes apuntar `Remoto` a LocalDB, o cambiar el código para leer `DefaultConnection`.
 
-### Paso 4 — Arrancar la API
+No subas contraseñas reales a repositorios públicos; en el host configura la connection string por variables de entorno o panel del proveedor.
+
+### Paso 4 — Arrancar la API (local)
 
 ```powershell
 dotnet run --project WebApis --launch-profile http
@@ -65,18 +84,22 @@ Al iniciar, la API:
 
 Cuando veas algo como `Now listening on: http://localhost:5065`, ya está lista.
 
-**URL base:** `http://localhost:5065`
+**URL base local:** `http://localhost:5065`
 
 ---
 
 ## 3. Cómo comprobar que funciona
 
-Con la API corriendo, abre otra terminal o usa Postman / Insomnia / el navegador.
-
-### Listar usuarios
+### Local
 
 ```http
 GET http://localhost:5065/api/users
+```
+
+### Producción
+
+```http
+GET https://wtw-task-manager-apis.runasp.net/api/users
 ```
 
 Deberías ver al menos a `wtw` y `steven`.
@@ -84,7 +107,7 @@ Deberías ver al menos a `wtw` y `steven`.
 ### Crear una tarea
 
 ```http
-POST http://localhost:5065/api/tasks
+POST https://wtw-task-manager-apis.runasp.net/api/tasks
 Content-Type: application/json
 
 {
@@ -100,7 +123,7 @@ Respuesta esperada: **201** con la tarea en estado `pending`.
 ### Cambiar estado (flujo válido)
 
 ```http
-PUT http://localhost:5065/api/tasks/1/status
+PUT https://wtw-task-manager-apis.runasp.net/api/tasks/1/status
 Content-Type: application/json
 
 {
@@ -133,7 +156,8 @@ Flujo típico: **Controller → Service → Repository → Base de datos**
 
 ## 5. Endpoints
 
-Base: `http://localhost:5065`
+Base local: `http://localhost:5065`  
+Base producción: `https://wtw-task-manager-apis.runasp.net`
 
 ### Usuarios
 
@@ -179,9 +203,10 @@ Se crean solos al arrancar la API:
 
 La API permite peticiones desde:
 
-`http://localhost:4200`
+- `http://localhost:4200` (desarrollo local)
+- `https://pt-semisenior-wtw-web.vercel.app` (frontend publicado)
 
-Así el frontend Angular en desarrollo puede consumir esta API sin bloqueos del navegador.
+Si cambias el dominio del front, actualiza `WithOrigins` en `WebApis/Program.cs` y **vuelve a publicar la API**.
 
 ---
 
@@ -212,7 +237,18 @@ Así el frontend Angular en desarrollo puede consumir esta API sin bloqueos del 
 
 ---
 
-## 10. Opción alternativa: script SQL
+## 10. Publicar la API
+
+1. Publica el proyecto `WebApis` al host (Web Deploy / panel del proveedor).
+2. Asegúrate de que la connection string `Remoto` apunte a la base remota.
+3. Confirma CORS con el dominio Vercel del front.
+4. Prueba: `GET https://wtw-task-manager-apis.runasp.net/api/users`
+
+**Orden recomendado:** publica primero la API (CORS), después el frontend en Vercel.
+
+---
+
+## 11. Opción alternativa: script SQL
 
 Si prefieres crear la base a mano (sin esperar a que la API haga `MigrateAsync`), ejecuta el script de abajo en SSMS o Azure Data Studio.
 
