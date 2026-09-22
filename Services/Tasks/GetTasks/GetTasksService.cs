@@ -18,19 +18,6 @@ public class GetTasksService
     {
         var tasks = await _taskRepository.GetAll(orderBy, cancellationToken);
 
-        var result = tasks.Select(t => new TaskDto
-        {
-            Id = t.Id,
-            Name = t.Name,
-            Description = t.Description,
-            Status = t.Status,
-            UserId = t.UserId,
-            CreatedBy = t.CreatedBy,
-            CreatedDate = t.CreatedDate,
-            UpdatedBy = t.UpdatedBy,
-            UpdatedDate = t.UpdatedDate
-        }).ToList();
-
-        return result;
+        return tasks.Select(TaskDtoMapper.ToDto).ToList();
     }
 }

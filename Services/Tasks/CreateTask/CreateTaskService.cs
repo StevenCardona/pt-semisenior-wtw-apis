@@ -54,19 +54,6 @@ public class CreateTaskService
 
         var created = await _taskRepository.Add(task, cancellationToken);
 
-        var result = new TaskDto
-        {
-            Id = created.Id,
-            Name = created.Name,
-            Description = created.Description,
-            Status = created.Status,
-            UserId = created.UserId,
-            CreatedBy = created.CreatedBy,
-            CreatedDate = created.CreatedDate,
-            UpdatedBy = created.UpdatedBy,
-            UpdatedDate = created.UpdatedDate
-        };
-
-        return result;
+        return TaskDtoMapper.ToDto(created, user);
     }
 }
