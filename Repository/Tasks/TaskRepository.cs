@@ -31,11 +31,10 @@ public class TaskRepository : ITaskRepository
 
     public async Task<IReadOnlyList<TaskItem>> GetAll(
         string? orderBy = null,
+        string? priority = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<TaskItem> query = _dbContext.Tasks
-            .AsNoTracking()
-            .Include(task => task.User);
+        IQueryable<TaskItem> query = BuildBaseQuery(priority);
 
         query = ApplyOrder(query, orderBy);
 
@@ -46,11 +45,10 @@ public class TaskRepository : ITaskRepository
         int userId,
         TaskItemStatus? status = null,
         string? orderBy = null,
+        string? priority = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<TaskItem> query = _dbContext.Tasks
-            .AsNoTracking()
-            .Include(task => task.User)
+        IQueryable<TaskItem> query = BuildBaseQuery(priority)
             .Where(task => task.UserId == userId);
 
         if (status.HasValue)
@@ -68,6 +66,59 @@ public class TaskRepository : ITaskRepository
         _dbContext.Tasks.Update(task);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> PatchPriority(
+        int taskId,
+        string priority,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var exists = await _dbContext.Tasks
+            .AnyAsync(task => task.Id == taskId, cancellationToken);
+
+        if (!exists)
+        {
+            return false;
+        }
+
+        // JSON_MODIFY: actualiza $.priority; si AdditionalInfo es NULL, crea el objeto base.
+        var rows = await _dbContext.Database.ExecuteSqlInterpolatedAsync($@"
+UPDATE [Tasks]
+SET [AdditionalInfo] = JSON_MODIFY(
+        COALESCE([AdditionalInfo], N'{{}}'),
+        '$.priority',
+        {priority}),
+    [UpdatedBy] = {updatedBy},
+    [UpdatedDate] = {DateTime.UtcNow}
+WHERE [Id] = {taskId};
+", cancellationToken);
+
+        return rows > 0;
+    }
+
+    /// <summary>
+    /// Usa JSON_VALUE nativo de SQL Server cuando hay filtro de prioridad.
+    /// </summary>
+    private IQueryable<TaskItem> BuildBaseQuery(string? priority)
+    {
+        IQueryable<TaskItem> query;
+
+        if (!string.IsNullOrWhiteSpace(priority))
+        {
+            query = _dbContext.Tasks.FromSqlInterpolated($@"
+                SELECT *
+                FROM [Tasks]
+                WHERE JSON_VALUE([AdditionalInfo], '$.priority') = {priority}");
+        }
+        else
+        {
+            query = _dbContext.Tasks;
+        }
+
+        return query
+            .AsNoTracking()
+            .Include(task => task.User);
     }
 
     private static IQueryable<TaskItem> ApplyOrder(IQueryable<TaskItem> query, string? orderBy)

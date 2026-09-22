@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Services.Tasks.Shared;
 
 namespace Services.Tasks.CreateTask;
 
@@ -16,4 +17,6 @@ public class CreateTaskRequest
 
     [Range(1, int.MaxValue, ErrorMessage = "CreatedBy debe ser mayor que 0.")]
     public int CreatedBy { get; set; }
+
+    public TaskAdditionalInfoDto? AdditionalInfo { get; set; }
 }

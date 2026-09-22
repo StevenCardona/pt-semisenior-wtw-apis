@@ -89,3 +89,84 @@ BEGIN
     VALUES (N'20260921204411_SeedDefaultUsers', N'10.0.12');
 END;
 GO
+
+-- 5) AdditionalInfo (JSON nativo SQL Server) — AddTaskAdditionalInfo
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922043800_AddTaskAdditionalInfo'
+)
+BEGIN
+    ALTER TABLE [Tasks] ADD [AdditionalInfo] nvarchar(max) NULL;
+
+    ALTER TABLE [Tasks] WITH CHECK
+    ADD CONSTRAINT [CK_Tasks_AdditionalInfo_IsJson]
+    CHECK ([AdditionalInfo] IS NULL OR ISJSON([AdditionalInfo]) = 1);
+
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260922043800_AddTaskAdditionalInfo', N'10.0.12');
+END;
+GO
+
+------------------------------------------------------------
+-- Ejemplos: funciones JSON nativas de SQL Server
+-- (requerimiento adicional de la prueba técnica)
+------------------------------------------------------------
+
+-- Ejemplo de filas con JSON válido (opcional, para probar las consultas):
+/*
+UPDATE [Tasks]
+SET [AdditionalInfo] = N'{
+  "priority": "high",
+  "dueDate": "2026-10-15",
+  "tags": ["sql", "api"],
+  "metadata": { "source": "script" }
+}'
+WHERE [Id] = 1;
+*/
+
+-- 1) ISJSON — validar que AdditionalInfo sea JSON
+SELECT
+    [Id],
+    [Name],
+    ISJSON([AdditionalInfo]) AS IsValidJson,
+    [AdditionalInfo]
+FROM [Tasks]
+WHERE [AdditionalInfo] IS NOT NULL;
+
+-- 2) JSON_VALUE — leer un campo escalar (prioridad)
+SELECT
+    [Id],
+    [Name],
+    JSON_VALUE([AdditionalInfo], '$.priority') AS Priority,
+    JSON_VALUE([AdditionalInfo], '$.dueDate') AS DueDate
+FROM [Tasks]
+WHERE JSON_VALUE([AdditionalInfo], '$.priority') = N'high';
+
+-- 3) JSON_QUERY — leer un array/objeto completo (tags)
+SELECT
+    [Id],
+    [Name],
+    JSON_QUERY([AdditionalInfo], '$.tags') AS TagsJson,
+    JSON_QUERY([AdditionalInfo], '$.metadata') AS MetadataJson
+FROM [Tasks]
+WHERE [AdditionalInfo] IS NOT NULL;
+
+-- 4) OPENJSON — filtrar tareas que tengan una etiqueta concreta
+SELECT
+    t.[Id],
+    t.[Name],
+    tag.[value] AS Tag
+FROM [Tasks] AS t
+CROSS APPLY OPENJSON(t.[AdditionalInfo], '$.tags') AS tag
+WHERE tag.[value] = N'sql';
+
+-- 5) JSON_MODIFY (opcional) — actualizar solo la prioridad
+/*
+UPDATE [Tasks]
+SET [AdditionalInfo] = JSON_MODIFY(
+        COALESCE([AdditionalInfo], N'{}'),
+        '$.priority',
+        N'medium')
+WHERE [Id] = 1;
+*/
+GO

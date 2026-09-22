@@ -5,6 +5,7 @@ using Services.Tasks.ChangeStatus;
 using Services.Tasks.CreateTask;
 using Services.Tasks.GetTasks;
 using Services.Tasks.GetTasksByUser;
+using Services.Tasks.UpdateAdditionalInfo;
 using Services.Users.CreateUser;
 using Services.Users.GetUsers;
 
@@ -23,6 +24,7 @@ public static class ServicesDependencyInjection
         services.AddScoped<GetTasksService>();
         services.AddScoped<ChangeTaskStatusService>();
         services.AddScoped<GetTasksByUserService>();
+        services.AddScoped<UpdateTaskAdditionalInfoService>();
 
         return services;
     }
