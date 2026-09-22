@@ -6,14 +6,14 @@ Stack: **.NET 10**, **Entity Framework Core** y **SQL Server** (LocalDB por defe
 
 ---
 
-## 1. Qué necesitas instalar
+## Pasos para ejecutar el proyecto
 
-Antes de empezar, ten instalado:
+### Requisitos
 
 1. [.NET 10 SDK](https://dotnet.microsoft.com/download)
 2. **SQL Server LocalDB** (viene con Visual Studio) o SQL Server Express / completo
 
-Para comprobar que .NET está bien:
+Comprueba .NET:
 
 ```powershell
 dotnet --version
@@ -21,27 +21,23 @@ dotnet --version
 
 Deberías ver una versión `10.x`.
 
----
-
-## 2. Cómo ponerlo a funcionar (paso a paso)
-
-### Paso 1 — Abrir la carpeta del proyecto
+### Arranque
 
 ```powershell
 cd wtw-task-manager-apis
-```
-
-### Paso 2 — Restaurar paquetes NuGet
-
-```powershell
 dotnet restore
+dotnet run --project WebApis --launch-profile http
 ```
 
-### Paso 3 — Connection string (normalmente no hay que tocarla)
+Al iniciar, la API crea la base si no existe, aplica las migrations y carga los usuarios de prueba.
 
-Por defecto usa LocalDB y la base `WtwTaskManager`:
+Cuando veas `Now listening on: http://localhost:5065`, ya está lista.
 
-Archivo: `WebApis/appsettings.json`
+**URL base:** `http://localhost:5065`
+
+### Connection string
+
+Por defecto usa LocalDB y la base `WtwTaskManager` en `WebApis/appsettings.json`:
 
 ```json
 "ConnectionStrings": {
@@ -49,89 +45,45 @@ Archivo: `WebApis/appsettings.json`
 }
 ```
 
-Solo cámbiala si usas otra instancia de SQL Server.
+Cámbiala solo si usas otra instancia de SQL Server.
 
-### Paso 4 — Arrancar la API
+### Opción: crear la base a mano
 
-```powershell
-dotnet run --project WebApis --launch-profile http
-```
+Si prefieres no depender de `MigrateAsync`, ejecuta el script:
 
-Al iniciar, la API:
+[`scripts/WtwTaskManager.sql`](scripts/WtwTaskManager.sql)
 
-- Crea la base de datos si no existe
-- Aplica las migrations
-- Carga los usuarios de prueba
-
-Cuando veas algo como `Now listening on: http://localhost:5065`, ya está lista.
-
-**URL base:** `http://localhost:5065`
+Ábrelo en SSMS o Azure Data Studio, cópialo y ejecútalo. Crea la base, tablas, índices y los 2 usuarios seed. Si luego arrancas la API con migrations, el historial EF ya queda alineado.
 
 ---
 
-## 3. Cómo comprobar que funciona
+## Cómo está compuesto
 
-Con la API corriendo, abre otra terminal o usa Postman / Insomnia / el navegador.
-
-### Listar usuarios
-
-```http
-GET http://localhost:5065/api/users
+```text
+WebApis/      Controllers, middleware, Program, CORS, connection string
+Services/     Lógica de negocio y validaciones (un servicio por caso de uso)
+Repository/   Acceso a datos con EF Core + migrations
+Models/       Entidades de dominio (User, TaskItem, estados, roles)
+Common/       ApiResponse y excepciones de aplicación
 ```
 
-Deberías ver al menos a `wtw` y `steven`.
-
-### Crear una tarea
-
-```http
-POST http://localhost:5065/api/tasks
-Content-Type: application/json
-
-{
-  "name": "Revisar reporte",
-  "description": "Revision mensual",
-  "userId": 2,
-  "createdBy": 1
-}
-```
-
-Respuesta esperada: **201** con la tarea en estado `pending`.
-
-### Cambiar estado (flujo válido)
-
-```http
-PUT http://localhost:5065/api/tasks/1/status
-Content-Type: application/json
-
-{
-  "status": "inProgress",
-  "updatedBy": 1
-}
-```
-
-Luego puedes pasar a `done`. Intentar `pending` → `done` directo debe devolver **400**.
-
-> **Nota sobre estados:** en el JSON de la API se usa camelCase del enum (`pending`, `inProgress`, `done`). En SQL Server se persisten como `pending`, `in_progress`, `done`.
+Flujo típico: **Controller → Service → Repository → base de datos**.
 
 ---
 
-## 4. Arquitectura (resumen)
+## Decisiones técnicas
 
-El backend está separado en capas:
-
-| Proyecto | Para qué sirve |
-|----------|----------------|
-| `WebApis` | Controllers, CORS, connection string, arranque de la API |
-| `Services` | Lógica de negocio (crear tarea, cambiar estado, etc.) |
-| `Repository` | Acceso a datos con EF Core y migrations |
-| `Models` | Entidades `User` y `TaskItem` |
-| `Common` | Respuestas estándar y excepciones |
-
-Flujo típico: **Controller → Service → Repository → Base de datos**
+- **Capas desacopladas.** Se separó lo que es la API (controllers), el muelle del negocio (services), el ORM (repository) y los modelos. Así es más fácil modificar o extender sin que todo quede amarrado a EF o a HTTP.
+- **Capa de servicios.** Ahí vive la lógica de negocio, las validaciones y el manejo de errores de dominio. Es la pieza más importante del backend.
+- **Migraciones.** El esquema se versiona con EF migrations para que todos tengan la misma base y no haya sorpresas entre entornos.
+- **Seed de 2 usuarios.** Al arrancar (o con el script SQL) quedan `wtw` (admin) y `steven` (user) para probar endpoints de una.
+- **Respuestas y errores uniformes.** Todo sale envuelto en `ApiResponse` y un middleware convierte excepciones de aplicación a JSON con el status correcto.
+- **CORS** abierto al frontend Angular en `http://localhost:4200`.
+- **Estados de tarea.** Flujo permitido: `pending` → `inProgress` → `done` (no se salta de pendiente a hecha).
 
 ---
 
-## 5. Endpoints
+## Endpoints
 
 Base: `http://localhost:5065`
 
@@ -139,180 +91,36 @@ Base: `http://localhost:5065`
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
-| `GET` | `/api/users` | Lista todos los usuarios |
-| `POST` | `/api/users` | Crea un usuario |
+| `GET` | `/api/users` | Lista usuarios |
+| `POST` | `/api/users` | Crea usuario |
 
 ### Tareas
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
-| `POST` | `/api/tasks` | Crea una tarea (estado inicial: `pending`) |
-| `GET` | `/api/tasks?orderBy=createdDate` o `status` | Lista todas las tareas |
-| `PUT` | `/api/tasks/{id}/status` | Cambia el estado de una tarea |
-| `GET` | `/api/tasks/user/{userId}?status=&orderBy=` | Tareas de un usuario (filtro opcional por estado) |
+| `POST` | `/api/tasks` | Crea tarea (estado inicial `pending`) |
+| `GET` | `/api/tasks?orderBy=` | Lista todas |
+| `GET` | `/api/tasks/user/{userId}?status=&orderBy=` | Lista por usuario |
+| `PUT` | `/api/tasks/{id}/status` | Cambia estado |
 
----
+Las respuestas de tarea traen el asignado en `assignedTo` (`id`, `name`, `mail`, `rol`).
 
-## 6. Reglas de negocio
-
-- El **título** de la tarea es obligatorio (no puede quedar vacío después de quitar espacios).
-- Toda tarea debe tener un **usuario asignado** (`userId`).
-- Estados permitidos (API): `pending` → `inProgress` → `done`.
-- **No** se puede pasar de `pending` a `done` directamente.
-
----
-
-## 7. Usuarios de prueba (seed)
-
-Se crean solos al arrancar la API:
+### Usuarios seed
 
 | Id | Name | Mail | Rol |
 |----|------|------|-----|
 | 1 | wtw | wtw@wtw.com | admin |
 | 2 | steven | steven@wtw.com | user |
 
-Úsalos en `userId` / `createdBy` al probar los endpoints.
+Úsalos en `userId` / `createdBy` / `updatedBy` al probar.
 
 ---
 
-## 8. CORS (frontend Angular)
+## Qué quedó pendiente
 
-La API permite peticiones desde:
-
-`http://localhost:4200`
-
-Así el frontend Angular en desarrollo puede consumir esta API sin bloqueos del navegador.
-
----
-
-## 9. Modelo de datos (referencia)
-
-### Users
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| Id | int | PK |
-| Name | nvarchar(200) | requerido |
-| Mail | nvarchar(256) | único |
-| Rol | nvarchar(20) | `admin` o `user` |
-| CreatedBy / CreatedDate | auditoría | |
-| UpdatedBy / UpdatedDate | auditoría | nullable |
-
-### Tasks
-
-| Columna | Tipo | Notas |
-|--------|------|--------|
-| Id | int | PK |
-| Name | nvarchar(200) | título, requerido |
-| Description | nvarchar(2000) | opcional |
-| Status | nvarchar(20) | en DB: `pending`, `in_progress`, `done` |
-| UserId | int | FK → Users (asignado) |
-| CreatedBy / CreatedDate | auditoría | |
-| UpdatedBy / UpdatedDate | auditoría | nullable |
-
----
-
-## 10. Opción alternativa: script SQL
-
-Si prefieres crear la base a mano (sin esperar a que la API haga `MigrateAsync`), ejecuta el script de abajo en SSMS o Azure Data Studio.
-
-**Si arrancas la API con migrations, no necesitas este script.**
-
-```sql
-------------------------------------------------------------
--- 1) Base de datos
-------------------------------------------------------------
-IF DB_ID(N'WtwTaskManager') IS NULL
-BEGIN
-    CREATE DATABASE [WtwTaskManager];
-END
-GO
-
-USE [WtwTaskManager];
-GO
-
-------------------------------------------------------------
--- 2) Historial de migrations (EF)
-------------------------------------------------------------
-IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
-BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
-    );
-END;
-GO
-
-------------------------------------------------------------
--- 3) Tablas e índices (InitialCreate)
-------------------------------------------------------------
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260921182157_InitialCreate'
-)
-BEGIN
-    CREATE TABLE [Users] (
-        [Id] int NOT NULL IDENTITY,
-        [Name] nvarchar(200) NOT NULL,
-        [Mail] nvarchar(256) NOT NULL,
-        [Rol] nvarchar(20) NOT NULL,
-        [CreatedBy] int NOT NULL,
-        [CreatedDate] datetime2 NOT NULL,
-        [UpdatedBy] int NULL,
-        [UpdatedDate] datetime2 NULL,
-        CONSTRAINT [PK_Users] PRIMARY KEY ([Id])
-    );
-
-    CREATE TABLE [Tasks] (
-        [Id] int NOT NULL IDENTITY,
-        [Name] nvarchar(200) NOT NULL,
-        [Description] nvarchar(2000) NULL,
-        [Status] nvarchar(20) NOT NULL,
-        [UserId] int NOT NULL,
-        [CreatedBy] int NOT NULL,
-        [CreatedDate] datetime2 NOT NULL,
-        [UpdatedBy] int NULL,
-        [UpdatedDate] datetime2 NULL,
-        CONSTRAINT [PK_Tasks] PRIMARY KEY ([Id]),
-        CONSTRAINT [FK_Tasks_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION
-    );
-
-    CREATE UNIQUE INDEX [IX_Users_Mail] ON [Users] ([Mail]);
-    CREATE INDEX [IX_Tasks_UserId] ON [Tasks] ([UserId]);
-    CREATE INDEX [IX_Tasks_UserId_Status] ON [Tasks] ([UserId], [Status]);
-
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260921182157_InitialCreate', N'10.0.12');
-END;
-GO
-
-------------------------------------------------------------
--- 4) Usuarios seed (SeedDefaultUsers)
-------------------------------------------------------------
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260921204411_SeedDefaultUsers'
-)
-BEGIN
-    SET IDENTITY_INSERT [Users] ON;
-
-    IF NOT EXISTS (SELECT 1 FROM [Users] WHERE [Mail] = N'wtw@wtw.com')
-    BEGIN
-        INSERT INTO [Users] ([Id], [Name], [Mail], [Rol], [CreatedBy], [CreatedDate], [UpdatedBy], [UpdatedDate])
-        VALUES (1, N'wtw', N'wtw@wtw.com', N'admin', 1, '2026-01-01T00:00:00.0000000Z', NULL, NULL);
-    END;
-
-    IF NOT EXISTS (SELECT 1 FROM [Users] WHERE [Mail] = N'steven@wtw.com')
-    BEGIN
-        INSERT INTO [Users] ([Id], [Name], [Mail], [Rol], [CreatedBy], [CreatedDate], [UpdatedBy], [UpdatedDate])
-        VALUES (2, N'steven', N'steven@wtw.com', N'user', 1, '2026-01-01T00:00:00.0000000Z', NULL, NULL);
-    END;
-
-    SET IDENTITY_INSERT [Users] OFF;
-
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260921204411_SeedDefaultUsers', N'10.0.12');
-END;
-GO
-```
+- Editar y eliminar usuarios
+- Editar y eliminar tareas
+- Búsqueda (usuarios / tareas por nombre o descripción)
+- Filtros, orden y paginación más completos en listados
+- Autenticación real (JWT o MFA): hoy no hay login; los ids de auditoría los manda el cliente
+- Autorización por rol (que un usuario solo vea lo asignado)
