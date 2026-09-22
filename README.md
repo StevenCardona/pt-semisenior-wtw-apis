@@ -23,12 +23,12 @@ GET https://wtw-task-manager-apis.runasp.net/api/users
 
 ## 1. Qué necesitas instalar
 
-Antes de empezar, ten instalado:
+### Requisitos
 
 1. [.NET 10 SDK](https://dotnet.microsoft.com/download)
 2. **SQL Server LocalDB** (viene con Visual Studio) o SQL Server Express / completo — solo si corres en local
 
-Para comprobar que .NET está bien:
+Comprueba .NET:
 
 ```powershell
 dotnet --version
@@ -36,27 +36,23 @@ dotnet --version
 
 Deberías ver una versión `10.x`.
 
----
-
-## 2. Cómo ponerlo a funcionar (paso a paso)
-
-### Paso 1 — Abrir la carpeta del proyecto
+### Arranque
 
 ```powershell
 cd wtw-task-manager-apis
-```
-
-### Paso 2 — Restaurar paquetes NuGet
-
-```powershell
 dotnet restore
+dotnet run --project WebApis --launch-profile http
 ```
+
+Al iniciar, la API crea la base si no existe, aplica las migrations y carga los usuarios de prueba.
+
+Cuando veas `Now listening on: http://localhost:5065`, ya está lista.
 
 ### Paso 3 — Connection string
 
 La API usa la clave **`Remoto`** (ver `Program.cs` → `GetConnectionString("Remoto")`).
 
-Archivo: `WebApis/appsettings.json`
+Por defecto usa LocalDB y la base `WtwTaskManager` en `WebApis/appsettings.json`:
 
 ```json
 "ConnectionStrings": {
@@ -72,11 +68,9 @@ No subas contraseñas reales a repositorios públicos; en el host configura la c
 
 ### Paso 4 — Arrancar la API (local)
 
-```powershell
-dotnet run --project WebApis --launch-profile http
-```
+Si prefieres no depender de `MigrateAsync`, ejecuta el script:
 
-Al iniciar, la API:
+[`scripts/WtwTaskManager.sql`](scripts/WtwTaskManager.sql)
 
 - Crea la base de datos si no existe
 - Aplica las migrations
@@ -138,23 +132,19 @@ Luego puedes pasar a `done`. Intentar `pending` → `done` directo debe devolver
 
 ---
 
-## 4. Arquitectura (resumen)
+## Decisiones técnicas
 
-El backend está separado en capas:
-
-| Proyecto | Para qué sirve |
-|----------|----------------|
-| `WebApis` | Controllers, CORS, connection string, arranque de la API |
-| `Services` | Lógica de negocio (crear tarea, cambiar estado, etc.) |
-| `Repository` | Acceso a datos con EF Core y migrations |
-| `Models` | Entidades `User` y `TaskItem` |
-| `Common` | Respuestas estándar y excepciones |
-
-Flujo típico: **Controller → Service → Repository → Base de datos**
+- **Capas desacopladas.** Se separó lo que es la API (controllers), el muelle del negocio (services), el ORM (repository) y los modelos. Así es más fácil modificar o extender sin que todo quede amarrado a EF o a HTTP.
+- **Capa de servicios.** Ahí vive la lógica de negocio, las validaciones y el manejo de errores de dominio. Es la pieza más importante del backend.
+- **Migraciones.** El esquema se versiona con EF migrations para que todos tengan la misma base y no haya sorpresas entre entornos.
+- **Seed de 2 usuarios.** Al arrancar (o con el script SQL) quedan `wtw` (admin) y `steven` (user) para probar endpoints de una.
+- **Respuestas y errores uniformes.** Todo sale envuelto en `ApiResponse` y un middleware convierte excepciones de aplicación a JSON con el status correcto.
+- **CORS** abierto al frontend Angular en `http://localhost:4200`.
+- **Estados de tarea.** Flujo permitido: `pending` → `inProgress` → `done` (no se salta de pendiente a hecha).
 
 ---
 
-## 5. Endpoints
+## Endpoints
 
 Base local: `http://localhost:5065`  
 Base producción: `https://wtw-task-manager-apis.runasp.net`
@@ -163,43 +153,32 @@ Base producción: `https://wtw-task-manager-apis.runasp.net`
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
-| `GET` | `/api/users` | Lista todos los usuarios |
-| `POST` | `/api/users` | Crea un usuario |
+| `GET` | `/api/users` | Lista usuarios |
+| `POST` | `/api/users` | Crea usuario |
 
 ### Tareas
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
-| `POST` | `/api/tasks` | Crea una tarea (estado inicial: `pending`) |
-| `GET` | `/api/tasks?orderBy=createdDate` o `status` | Lista todas las tareas |
-| `PUT` | `/api/tasks/{id}/status` | Cambia el estado de una tarea |
-| `GET` | `/api/tasks/user/{userId}?status=&orderBy=` | Tareas de un usuario (filtro opcional por estado) |
+| `POST` | `/api/tasks` | Crea tarea (estado inicial `pending`) |
+| `GET` | `/api/tasks?orderBy=` | Lista todas |
+| `GET` | `/api/tasks/user/{userId}?status=&orderBy=` | Lista por usuario |
+| `PUT` | `/api/tasks/{id}/status` | Cambia estado |
 
----
+Las respuestas de tarea traen el asignado en `assignedTo` (`id`, `name`, `mail`, `rol`).
 
-## 6. Reglas de negocio
-
-- El **título** de la tarea es obligatorio (no puede quedar vacío después de quitar espacios).
-- Toda tarea debe tener un **usuario asignado** (`userId`).
-- Estados permitidos (API): `pending` → `inProgress` → `done`.
-- **No** se puede pasar de `pending` a `done` directamente.
-
----
-
-## 7. Usuarios de prueba (seed)
-
-Se crean solos al arrancar la API:
+### Usuarios seed
 
 | Id | Name | Mail | Rol |
 |----|------|------|-----|
 | 1 | wtw | wtw@wtw.com | admin |
 | 2 | steven | steven@wtw.com | user |
 
-Úsalos en `userId` / `createdBy` al probar los endpoints.
+Úsalos en `userId` / `createdBy` / `updatedBy` al probar.
 
 ---
 
-## 8. CORS (frontend Angular)
+## Qué quedó pendiente
 
 La API permite peticiones desde:
 

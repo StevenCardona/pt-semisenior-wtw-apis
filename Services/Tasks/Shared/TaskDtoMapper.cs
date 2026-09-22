@@ -7,18 +7,7 @@ public static class TaskDtoMapper
 {
     public static TaskDto ToDto(TaskItem task)
     {
-        return new TaskDto
-        {
-            Id = task.Id,
-            Name = task.Name,
-            Description = task.Description,
-            Status = task.Status,
-            AssignedTo = ToAssignedTo(task.User),
-            CreatedBy = task.CreatedBy,
-            CreatedDate = task.CreatedDate,
-            UpdatedBy = task.UpdatedBy,
-            UpdatedDate = task.UpdatedDate
-        };
+        return ToDto(task, task.User);
     }
 
     public static TaskDto ToDto(TaskItem task, User assignedUser)
