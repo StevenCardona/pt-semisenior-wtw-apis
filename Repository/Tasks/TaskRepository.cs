@@ -25,6 +25,7 @@ public class TaskRepository : ITaskRepository
     public async Task<TaskItem?> GetById(int id, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Tasks
+            .Include(t => t.User)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
@@ -32,7 +33,9 @@ public class TaskRepository : ITaskRepository
         string? orderBy = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Tasks.AsNoTracking();
+        IQueryable<TaskItem> query = _dbContext.Tasks
+            .AsNoTracking()
+            .Include(t => t.User);
 
         if (orderBy != null && orderBy.ToLower() == "status")
         {
@@ -53,8 +56,9 @@ public class TaskRepository : ITaskRepository
         string? orderBy = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Tasks
+        IQueryable<TaskItem> query = _dbContext.Tasks
             .AsNoTracking()
+            .Include(t => t.User)
             .Where(t => t.UserId == userId);
 
         if (status.HasValue)

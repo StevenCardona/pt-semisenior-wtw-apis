@@ -1,5 +1,4 @@
 using Common.Exceptions;
-using Models.Tasks;
 using Repository.Tasks;
 using Services.Tasks.Shared;
 
@@ -32,19 +31,6 @@ public class ChangeTaskStatusService
 
         await _taskRepository.Update(task, cancellationToken);
 
-        var result = new TaskDto
-        {
-            Id = task.Id,
-            Name = task.Name,
-            Description = task.Description,
-            Status = task.Status,
-            UserId = task.UserId,
-            CreatedBy = task.CreatedBy,
-            CreatedDate = task.CreatedDate,
-            UpdatedBy = task.UpdatedBy,
-            UpdatedDate = task.UpdatedDate
-        };
-
-        return result;
+        return TaskDtoMapper.ToDto(task);
     }
 }
