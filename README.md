@@ -189,6 +189,11 @@ Si cambias el dominio del front, actualiza `WithOrigins` en `WebApis/Program.cs`
 
 ---
 
+## Apuntes previos al desarrollo
+<img width="1000" height="1300" alt="wtw" src="https://github.com/user-attachments/assets/80364ce4-24ad-44f0-976d-85a766e33430" />
+
+---
+
 ## 9. Modelo de datos (referencia)
 
 ### Users
