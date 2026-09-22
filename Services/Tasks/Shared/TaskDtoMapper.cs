@@ -19,6 +19,7 @@ public static class TaskDtoMapper
             Description = task.Description,
             Status = task.Status,
             AssignedTo = ToAssignedTo(assignedUser),
+            AdditionalInfo = TaskAdditionalInfoSerializer.Deserialize(task.AdditionalInfo),
             CreatedBy = task.CreatedBy,
             CreatedDate = task.CreatedDate,
             UpdatedBy = task.UpdatedBy,

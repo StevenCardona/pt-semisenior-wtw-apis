@@ -102,6 +102,13 @@ public class AppDbContext : DbContext
             entity.Property(e => e.UserId)
                 .IsRequired();
 
+            entity.Property(e => e.AdditionalInfo)
+                .HasColumnType("nvarchar(max)");
+
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_Tasks_AdditionalInfo_IsJson",
+                "[AdditionalInfo] IS NULL OR ISJSON([AdditionalInfo]) = 1"));
+
             entity.Property(e => e.CreatedBy)
                 .IsRequired();
 

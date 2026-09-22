@@ -14,9 +14,17 @@ public class GetTasksService
 
     public async Task<IReadOnlyList<TaskDto>> ExecuteAsync(
         string? orderBy = null,
+        string? priority = null,
         CancellationToken cancellationToken = default)
     {
-        var tasks = await _taskRepository.GetAll(orderBy, cancellationToken);
+        string? normalizedPriority = null;
+
+        if (!string.IsNullOrWhiteSpace(priority))
+        {
+            normalizedPriority = TaskAdditionalInfoSerializer.NormalizePriorityFilter(priority);
+        }
+
+        var tasks = await _taskRepository.GetAll(orderBy, normalizedPriority, cancellationToken);
 
         return tasks.Select(TaskDtoMapper.ToDto).ToList();
     }

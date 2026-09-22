@@ -21,6 +21,7 @@ public class GetTasksByUserService
         int userId,
         TaskItemStatus? status = null,
         string? orderBy = null,
+        string? priority = null,
         CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetById(userId, cancellationToken);
@@ -30,7 +31,19 @@ public class GetTasksByUserService
             throw new NotFoundException($"No existe un usuario con el id '{userId}'.");
         }
 
-        var tasks = await _taskRepository.GetByUser(userId, status, orderBy, cancellationToken);
+        string? normalizedPriority = null;
+
+        if (!string.IsNullOrWhiteSpace(priority))
+        {
+            normalizedPriority = TaskAdditionalInfoSerializer.NormalizePriorityFilter(priority);
+        }
+
+        var tasks = await _taskRepository.GetByUser(
+            userId,
+            status,
+            orderBy,
+            normalizedPriority,
+            cancellationToken);
 
         return tasks.Select(TaskDtoMapper.ToDto).ToList();
     }

@@ -141,6 +141,7 @@ Luego puedes pasar a `done`. Intentar `pending` → `done` directo debe devolver
 - **Respuestas y errores uniformes.** Todo sale envuelto en `ApiResponse` y un middleware convierte excepciones de aplicación a JSON con el status correcto.
 - **CORS** abierto al frontend Angular en `http://localhost:4200`.
 - **Estados de tarea.** Flujo permitido: `pending` → `inProgress` → `done` (no se salta de pendiente a hecha).
+- **AdditionalInfo como JSON nativo.** Se guarda en `NVARCHAR(MAX)` con `CHECK (ISJSON(...)=1)`. La API expone un objeto tipado; SQL Server usa `JSON_VALUE` / `JSON_MODIFY` para filtrar y actualizar. No se usa una tabla de tags aparte: el enunciado pide demostrar JSON en SQL Server.
 
 ---
 
@@ -160,12 +161,51 @@ Base producción: `https://wtw-task-manager-apis.runasp.net`
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
-| `POST` | `/api/tasks` | Crea tarea (estado inicial `pending`) |
-| `GET` | `/api/tasks?orderBy=` | Lista todas |
-| `GET` | `/api/tasks/user/{userId}?status=&orderBy=` | Lista por usuario |
+| `POST` | `/api/tasks` | Crea tarea (estado inicial `pending`; acepta `additionalInfo`) |
+| `GET` | `/api/tasks?orderBy=&priority=` | Lista todas (filtro opcional por prioridad JSON) |
+| `GET` | `/api/tasks/user/{userId}?status=&orderBy=&priority=` | Lista por usuario |
 | `PUT` | `/api/tasks/{id}/status` | Cambia estado |
+| `PATCH` | `/api/tasks/{id}/additional-info` | Actualiza `$.priority` con `JSON_MODIFY` |
 
-Las respuestas de tarea traen el asignado en `assignedTo` (`id`, `name`, `mail`, `rol`).
+Las respuestas de tarea traen el asignado en `assignedTo` (`id`, `name`, `mail`, `rol`) y `additionalInfo` (objeto o `null`).
+
+#### Crear tarea con JSON adicional
+
+```http
+POST https://wtw-task-manager-apis.runasp.net/api/tasks
+Content-Type: application/json
+
+{
+  "name": "Revisar reporte",
+  "description": "Revision mensual",
+  "userId": 2,
+  "createdBy": 1,
+  "additionalInfo": {
+    "priority": "high",
+    "dueDate": "2026-10-15",
+    "tags": ["sql", "api"],
+    "metadata": { "source": "ui" }
+  }
+}
+```
+
+`priority` admite `low`, `medium` o `high`. Filtrar:
+
+```http
+GET https://wtw-task-manager-apis.runasp.net/api/tasks?priority=high
+```
+
+Actualizar solo la prioridad (usa `JSON_MODIFY` en SQL Server):
+
+```http
+PATCH https://wtw-task-manager-apis.runasp.net/api/tasks/1/additional-info
+Content-Type: application/json
+
+{
+  "priority": "medium",
+  "updatedBy": 1
+}
+```
 
 ### Usuarios seed
 
@@ -216,8 +256,48 @@ Si cambias el dominio del front, actualiza `WithOrigins` en `WebApis/Program.cs`
 | Description | nvarchar(2000) | opcional |
 | Status | nvarchar(20) | en DB: `pending`, `in_progress`, `done` |
 | UserId | int | FK → Users (asignado) |
+| AdditionalInfo | nvarchar(max) | JSON opcional; `CHECK ISJSON` |
 | CreatedBy / CreatedDate | auditoría | |
 | UpdatedBy / UpdatedDate | auditoría | nullable |
+
+### AdditionalInfo (JSON)
+
+```json
+{
+  "priority": "medium",
+  "dueDate": "2026-10-15",
+  "tags": ["sql", "api"],
+  "metadata": { "source": "ui" }
+}
+```
+
+Ejemplos de consultas con funciones nativas (también en [`scripts/WtwTaskManager.sql`](scripts/WtwTaskManager.sql)):
+
+```sql
+-- ISJSON
+SELECT Id, Name, ISJSON(AdditionalInfo) AS IsValidJson
+FROM Tasks WHERE AdditionalInfo IS NOT NULL;
+
+-- JSON_VALUE (filtro por prioridad — igual que GET /api/tasks?priority=high)
+SELECT Id, Name, JSON_VALUE(AdditionalInfo, '$.priority') AS Priority
+FROM Tasks
+WHERE JSON_VALUE(AdditionalInfo, '$.priority') = N'high';
+
+-- JSON_QUERY
+SELECT Id, JSON_QUERY(AdditionalInfo, '$.tags') AS TagsJson
+FROM Tasks WHERE AdditionalInfo IS NOT NULL;
+
+-- OPENJSON (filtrar por etiqueta)
+SELECT t.Id, t.Name, tag.value AS Tag
+FROM Tasks AS t
+CROSS APPLY OPENJSON(t.AdditionalInfo, '$.tags') AS tag
+WHERE tag.value = N'sql';
+
+-- JSON_MODIFY (opcional)
+UPDATE Tasks
+SET AdditionalInfo = JSON_MODIFY(COALESCE(AdditionalInfo, N'{}'), '$.priority', N'medium')
+WHERE Id = 1;
+```
 
 ---
 

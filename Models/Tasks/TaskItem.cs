@@ -10,6 +10,10 @@ public class TaskItem
     public string? Description { get; set; }
     public TaskItemStatus Status { get; set; }
     public int UserId { get; set; }
+    /// <summary>
+    /// JSON adicional (prioridad, dueDate, tags, metadata). Persistido como NVARCHAR(MAX).
+    /// </summary>
+    public string? AdditionalInfo { get; set; }
     public int CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; }
     public int? UpdatedBy { get; set; }

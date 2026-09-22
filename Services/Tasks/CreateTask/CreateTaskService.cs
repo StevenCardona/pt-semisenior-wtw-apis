@@ -40,12 +40,15 @@ public class CreateTaskService
             description = request.Description.Trim();
         }
 
+        var additionalInfoJson = TaskAdditionalInfoSerializer.Serialize(request.AdditionalInfo);
+
         var task = new TaskItem
         {
             Name = name,
             Description = description,
             Status = TaskItemStatus.Pending,
             UserId = request.UserId,
+            AdditionalInfo = additionalInfoJson,
             CreatedBy = request.CreatedBy,
             CreatedDate = DateTime.UtcNow,
             UpdatedBy = null,
